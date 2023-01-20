@@ -1,0 +1,358 @@
+unit UPrincipal;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
+  Vcl.Imaging.pngimage, REST.Json.Types, REST.Types, System.Json,
+  System.StrUtils, System.Types, System.DateUtils, System.NetEncoding,
+  Vcl.Buttons, Vcl.OleCtrls, SHDocVw, Vcl.FileCtrl, System.Win.ComObj;
+
+const
+  BaseUrl = 'http://localhost:3000';
+
+type
+  TContato = record
+    enviado: Boolean;
+    telefone: String;
+  end;
+
+type
+  TContatos = Array of TContato;
+
+type
+  TFrm_Principal = class(TForm)
+    PnlFundo: TPanel;
+    lblMensagem: TLabel;
+    lblCaminhoArquivo: TLabel;
+    lblCampoArquivo: TLabel;
+    MemoMensagem: TMemo;
+    EdtCampoTelefone: TEdit;
+    EdtCaminhoArquivo: TEdit;
+    Image1: TImage;
+    Panel1: TPanel;
+    Image2: TImage;
+    Label1: TLabel;
+    PnlStatusServico: TPanel;
+    lblStatusServico: TLabel;
+    lblToggleServico: TLabel;
+    Memo1: TMemo;
+    BitBtn1: TBitBtn;
+    OpenDialog1: TOpenDialog;
+    WebBrowser1: TWebBrowser;
+    procedure Panel1Click(Sender: TObject);
+    procedure lblToggleServicoClick(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+  private
+    { Private declarations }
+    Conectado: Boolean;
+    FContatos: TContatos;
+    procedure ProcessarArquivoExcel(Caminho: String);
+    procedure EnviarRequisicaoMensagem;
+    procedure ValidarNumerosEnviados;
+    procedure ToggleServico;
+    function RetiraEnter(aText: string): string;
+  public
+    { Public declarations }
+    property Contatos: TContatos read FContatos write FContatos;
+  end;
+
+var
+  Frm_Principal: TFrm_Principal;
+
+implementation
+
+{$R *.dfm}
+
+uses UApiRest, JPEG, Soap.EncdDecd, UPdr_Mensagens, UFuncoes;
+
+procedure TFrm_Principal.BitBtn1Click(Sender: TObject);
+begin
+  if OpenDialog1.Execute() then
+  begin
+    EdtCaminhoArquivo.Text := OpenDialog1.FileName;
+  end;
+
+end;
+
+procedure TFrm_Principal.EnviarRequisicaoMensagem;
+var
+  ApiRest: TApiRest;
+  IContato: Integer;
+begin
+  for IContato := Low(FContatos) to High(FContatos) do
+  begin
+    if FContatos[IContato].telefone <> EmptyStr then
+    begin
+      ApiRest := TApiRest.Create;
+      try
+        ApiRest.LimparParametros;
+        ApiRest.ConfigurarMetodo(rmPOST);
+        ApiRest.ConfigurarURL(BaseUrl + '/send');
+        ApiRest.AdicionarBodyRequisicao('{"number": "' + FContatos[IContato]
+          .telefone + '", "message": "' + MemoMensagem.Text + '"}');
+        ApiRest.EnviarRequisicao;
+
+        if (ApiRest.CodigoResposta = 200) then
+        begin
+          FContatos[IContato].enviado := True;
+        end
+        else
+        begin
+          FContatos[IContato].enviado := False;
+        end;
+
+      finally
+        FreeAndNil(ApiRest);
+      end;
+    end;
+  end;
+end;
+
+procedure TFrm_Principal.FormCreate(Sender: TObject);
+begin
+  WebBrowser1.Left := 1500;
+  Application.ProcessMessages;
+end;
+
+procedure TFrm_Principal.lblToggleServicoClick(Sender: TObject);
+begin
+  ToggleServico;
+end;
+
+procedure TFrm_Principal.Panel1Click(Sender: TObject);
+begin
+  if lblStatusServico.Caption = 'Conectado' then
+  begin
+    if Trim(MemoMensagem.Text) <> EmptyStr then
+    begin
+      if Trim(EdtCaminhoArquivo.Text) <> EmptyStr then
+      begin
+        if Trim(EdtCampoTelefone.Text) <> EmptyStr then
+        begin
+          ProcessarArquivoExcel(Trim(EdtCaminhoArquivo.Text));
+          EnviarRequisicaoMensagem;
+          ValidarNumerosEnviados;
+        end
+        else
+          MensagemBloqueio
+            ('É necessário preencher o nome da coluna do telefone.',
+            EdtCampoTelefone);
+      end
+      else
+        MensagemBloqueio('É necessário escolher um arquivo de contatos.');
+    end
+    else
+      MensagemBloqueio
+        ('É necessário preencher a mensagem que deseja enviar.', Memo1);
+  end
+  else
+    MensagemBloqueio
+      ('É necessário estar conectado ao servidor para enviar mensagens.');
+end;
+
+procedure TFrm_Principal.ProcessarArquivoExcel(Caminho: String);
+const
+  xlCellTypeLastCell = $0000000B;
+var
+  Excel, AbaExcel: OleVariant;
+  Linha: Integer;
+  UltimaLinha: Integer;
+  UltimaColuna: Integer;
+  RangeMatrix: Variant;
+  Coluna: Integer;
+  ConteudoColuna: String;
+  ColunaCampoTelefone: Integer;
+  telefone: String;
+  IndexContato: Integer;
+begin
+  if FileExists(Caminho) then
+  begin
+    Excel := CreateOleObject('Excel.Application');
+    try
+      Excel.Visible := False;
+      Excel.Workbooks.Open(Caminho);
+      Excel.WorkSheets[1].Activate;
+
+      AbaExcel := Excel.Workbooks[ExtractFileName(Caminho)].WorkSheets[1];
+
+      AbaExcel.Cells.SpecialCells(xlCellTypeLastCell, EmptyParam).Activate;
+      UltimaLinha := Excel.ActiveCell.Row;
+      UltimaColuna := Excel.ActiveCell.Column;
+
+      RangeMatrix := Excel.Range['A1', Excel.Cells.Item[UltimaLinha,
+        UltimaColuna]].Value;
+
+      SetLength(FContatos, UltimaLinha);
+
+      ColunaCampoTelefone := 0;
+      IndexContato := 0;
+      for Linha := 1 to UltimaLinha do
+      begin
+        for Coluna := 1 to UltimaColuna do
+        begin
+          ConteudoColuna := RangeMatrix[Linha, Coluna];
+          if Linha = 1 then
+          begin
+            if UpperCase(ConteudoColuna) = UpperCase(EdtCampoTelefone.Text) then
+            begin
+              ColunaCampoTelefone := Coluna;
+            end;
+          end
+          else
+          begin
+            if ColunaCampoTelefone > 0 then
+            begin
+              if Coluna = ColunaCampoTelefone then
+              begin
+                telefone := RangeMatrix[Linha, Coluna];
+                FContatos[IndexContato].enviado := False;
+                FContatos[IndexContato].telefone := telefone;
+                Inc(IndexContato);
+              end;
+            end;
+          end;
+        end;
+      end;
+
+      RangeMatrix := Unassigned;
+
+      if ColunaCampoTelefone = 0 then
+        MensagemBloqueio('A Coluna de telefone informada não existe na planilha escolida');
+
+
+    finally
+      if not VarIsEmpty(Excel) then
+      begin
+        Excel.Quit;
+        Excel := Unassigned;
+        AbaExcel := Unassigned;
+      end;
+    end;
+  end
+  else
+    MensagemErro
+      ('O arquivo informado não foi encontrado, verifique e tente novamente.');
+
+end;
+
+function TFrm_Principal.RetiraEnter(aText: string): string;
+begin
+  Result := StringReplace(aText, #$D#$A, '', [rfReplaceAll]);
+  Result := StringReplace(Result, #13#10, '', [rfReplaceAll]);
+end;
+
+procedure TFrm_Principal.ToggleServico;
+var
+  ApiRest: TApiRest;
+  JsonResposta: string;
+  ObjetoRetorno: TJSONObject;
+  ObjetoQCode: TJSONObject;
+  base64QrCode: string;
+  HTML: string;
+begin
+  if lblStatusServico.Caption = 'Conectado' then
+  begin
+    lblStatusServico.Caption := 'Desconectado';
+    lblToggleServico.Caption := 'Conectar';
+    Exit;
+  end;
+
+  ApiRest := TApiRest.Create;
+  try
+    ApiRest.LimparParametros;
+    ApiRest.ConfigurarMetodo(rmGET);
+    ApiRest.ConfigurarURL(BaseUrl + '/status');
+    try
+      ApiRest.EnviarRequisicao;
+    except
+      lblStatusServico.Caption := 'Aguardando servidor...';
+      lblToggleServico.Caption := 'Aguarde...';
+      Application.ProcessMessages;
+      Exit;
+    end;
+
+    if (ApiRest.CodigoResposta = 200) then
+    begin
+      JsonResposta := RetiraEnter(ApiRest.ProcessarResposta);
+      ObjetoRetorno := TJSONObject.ParseJSONValue(JsonResposta) as TJSONObject;
+      Conectado := ObjetoRetorno.Values['connected'].Value = 'true';
+
+      if (Conectado) then
+      begin
+        lblStatusServico.Color := clWhite;
+        lblStatusServico.Caption := 'Conectado';
+        lblToggleServico.Caption := 'Desconectar';
+        WebBrowser1.Left := 1500;
+        Image1.Visible := True;
+      end
+      else
+      begin
+        lblToggleServico.Caption := 'Aguarde...';
+        lblStatusServico.Color := clRed;
+        lblStatusServico.Caption := 'Desconectado';
+        try
+          ObjetoQCode := ObjetoRetorno.Values['qr_code'] as TJSONObject;
+          base64QrCode := ObjetoQCode.Values['base64Qrimg'].Value;
+          HTML := GerarHTMLQRCode(base64QrCode);
+          Memo1.Lines.Clear;
+          Memo1.Lines.Add(HTML);
+          Memo1.Lines.SaveToFile(ExtractFilePath(Application.ExeName) +
+            'QrCode.html');
+          WebBrowser1.Navigate(ExtractFilePath(Application.ExeName) +
+            'QrCode.html');
+          WebBrowser1.OleObject.Document.Body.Style.OverflowX := 'hidden';
+          WebBrowser1.OleObject.Document.Body.Style.OverflowY := 'hidden';
+          WebBrowser1.Height := 300;
+          WebBrowser1.Width := 320;
+          WebBrowser1.Left := 890;
+          lblStatusServico.Caption := 'Aguardando Gerar QrCode';
+          Sleep(1500);
+          Image1.Visible := False;
+          lblStatusServico.Caption := 'Aguardando Leitura QrCode';
+        except
+          lblStatusServico.Caption := 'Aguardando Gerar QrCode';
+        end;
+      end;
+
+      Application.ProcessMessages;
+    end;
+
+  finally
+    FreeAndNil(ApiRest);
+
+    if (lblStatusServico.Caption <> 'Conectado') then
+    begin
+      Sleep(3000);
+      ToggleServico;
+    end;
+  end;
+end;
+
+procedure TFrm_Principal.ValidarNumerosEnviados;
+var
+  IContato: Integer;
+  ContagemNaoEnviados: Integer;
+begin
+  ContagemNaoEnviados := 0;
+  for IContato := Low(FContatos) to High(FContatos) do
+  begin
+    if FContatos[IContato].telefone <> EmptyStr then
+    begin
+      if not FContatos[IContato].enviado then
+        Inc(ContagemNaoEnviados);
+    end;
+  end;
+
+  if ContagemNaoEnviados > 0 then
+  begin
+    Mensagem(ContagemNaoEnviados.ToString + ' contatos não receberam sua mensagem por serem números inválidos para o whatsapp');
+  end
+  else
+    Mensagem('Mensagens enviadas com sucesso');
+end;
+
+end.

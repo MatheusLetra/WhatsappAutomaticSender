@@ -1,0 +1,14 @@
+unit UFuncoes;
+
+interface
+
+procedure GerarHTMLQRCode;
+
+implementation
+
+procedure GerarHTMLQRCode;
+begin
+
+end;
+
+end.

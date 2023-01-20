@@ -1,0 +1,18 @@
+{
+  "name": "whatsappautomaticsenderapi",
+  "version": "1.0.0",
+  "description": "API da Aplicação WhatsappAutomaticSender",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "author": "Matheus Letra",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.20.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "libphonenumber-js": "^1.10.18",
+    "venom-bot": "^4.3.7"
+  }
+}

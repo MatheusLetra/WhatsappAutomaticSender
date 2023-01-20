@@ -1,0 +1,170 @@
+unit UApiRest;
+
+interface
+
+uses
+  REST.Types, REST.Client, System.Classes, System.SysUtils, Vcl.Forms,
+  Winapi.Windows;
+
+type
+  TApiRest = class
+
+  private
+    fBaseUrl: String;
+    Client: TRESTClient;
+    Request: TRESTRequest;
+    Response: TRESTResponse;
+    fCodigoResposta: Integer;
+    JsonRequisicao: String;
+    fHoraInicioRequisicao: String;
+    fHoraFimRequisicao: String;
+  public
+    fArquivoLog: TStringList;
+    procedure ConfigurarMetodo(Metodo: TRestRequestMethod);
+    procedure AdicionarHeader(Chave, Valor: String);
+    procedure LimparParametros();
+    procedure EnviarRequisicao();
+    procedure ConfigurarURL(Url: String);
+    procedure AdicionarBodyRequisicao(Json: String);
+    function ProcessarResposta(): String;
+    constructor Create(); reintroduce; overload;
+    destructor Destroy();
+    function RetiraEnter(aText : string): string;
+    procedure AtualizarLog();
+    procedure SalvarLog(App: TApplication);
+  published
+    property BaseUrl : String read fBaseUrl write fBaseUrl;
+    property CodigoResposta: Integer read fCodigoResposta write fCodigoResposta;
+    property ArquivoLog : TStringList read fArquivoLog write fArquivoLog;
+    property HoraInicioRequisicao: String read fHoraInicioRequisicao write fHoraInicioRequisicao;
+    property HoraFimRequisicao: String read fHoraFimRequisicao write fHoraFimRequisicao;
+  end;
+
+implementation
+
+
+{ TApiRest }
+
+procedure TApiRest.AdicionarBodyRequisicao(Json: String);
+begin
+  with Request.Params.AddItem do
+  begin
+    ContentType := ctAPPLICATION_JSON;
+    Name        := 'body';
+    Value       := Json;
+    Kind        := pkREQUESTBODY;
+  end;
+  JsonRequisicao := Json;
+end;
+
+procedure TApiRest.AdicionarHeader(Chave, Valor: String);
+begin
+  Request.Params.AddHeader(Chave, Valor);
+end;
+
+procedure TApiRest.AtualizarLog;
+var
+  MetodoRequisicao: string;
+begin
+  case Request.Method of
+    rmPOST: MetodoRequisicao := 'POST';
+    rmPUT:  MetodoRequisicao := 'PUT';
+    rmGET:  MetodoRequisicao := 'GET';
+    rmDELETE:  MetodoRequisicao := 'DELETE';
+    rmPATCH:  MetodoRequisicao := 'PATCH';
+  end;
+
+  if (Assigned(fArquivoLog)) then
+  begin
+    fArquivoLog.Add('------------ Nova Requisicao ------------');
+    fArquivoLog.Add('Data/Hora de Envio da Requisicao: ' + HoraInicioRequisicao);
+    fArquivoLog.Add('Data/Hora de Resposta da Requisicao: ' + HoraFimRequisicao);
+    fArquivoLog.Add('Metodo de Envio da Requisicao: ' + SLineBreak + MetodoRequisicao);
+    fArquivoLog.Add('Endpoint de Envio da Requisicao: ' + SLineBreak + Client.BaseURL);
+
+    if (JsonRequisicao <> '') then
+    begin
+      fArquivoLog.Add('Parametro de Envio da Requisicao: ' + SLineBreak + JsonRequisicao);
+      JsonRequisicao := '';
+    end;
+
+    fArquivoLog.Add('Codigo de Resposta da Requisicao: ' + SLineBreak + CodigoResposta.ToString);
+    fArquivoLog.Add('Resposta de Requisicao: ' + SLineBreak + ProcessarResposta);
+    fArquivoLog.Add('------------ Fim Requisicao ------------');
+    fArquivoLog.Add('');
+  end;
+end;
+
+procedure TApiRest.ConfigurarMetodo(Metodo: TRestRequestMethod);
+begin
+  Request.Method := Metodo;
+end;
+
+procedure TApiRest.ConfigurarURL(Url: String);
+begin
+  BaseUrl := Url;
+  Client.BaseURL := BaseUrl;
+end;
+
+constructor TApiRest.Create;
+begin
+  Client   := TRESTClient.Create(nil);
+  Request  := TRESTRequest.Create(nil);
+  Response := TRESTResponse.Create(nil);
+
+  Request.Client   := Client;
+  Request.Response := Response;
+  Request.TimeOut  := 300000;
+end;
+
+destructor TApiRest.Destroy;
+begin
+  FreeAndNil(Client);
+  FreeAndNil(Request);
+  FreeAndNil(Response);
+end;
+
+procedure TApiRest.EnviarRequisicao;
+begin
+  fHoraInicioRequisicao := FormatDateTime('dd/mm/yyyy hh:nn:ss', now);
+  Request.Execute;
+  CodigoResposta := Response.StatusCode;
+  fHoraFimRequisicao    := FormatDateTime('dd/mm/yyyy hh:nn:ss', now);
+  AtualizarLog;
+end;
+
+procedure TApiRest.LimparParametros;
+begin
+  Request.Params.Clear;
+end;
+
+function TApiRest.ProcessarResposta: String;
+begin
+  Result := RetiraEnter(Response.JSONText);
+end;
+
+function TApiRest.RetiraEnter(aText: string): string;
+begin
+  Result := StringReplace(aText, #$D#$A, '', [rfReplaceAll]);
+  Result := StringReplace(Result, #13#10, '', [rfReplaceAll]);
+end;
+
+procedure TApiRest.SalvarLog(App: TApplication);
+var
+  CaminhoLog: string;
+begin
+  CaminhoLog := ExtractFilePath(App.ExeName) + FormatDateTime('dd_mm_yyyy_hh_nn_ss', now) + ' - EnvioApiRestLOG.txt';
+
+  if (Assigned(fArquivoLog)) then
+  begin
+    ArquivoLog.SaveToFile(CaminhoLog);
+    SetFileAttributes(PChar(CaminhoLog), FILE_ATTRIBUTE_READONLY);
+    ArquivoLog.Clear;
+  end;
+
+  Sleep(2000);
+  if (Assigned(fArquivoLog)) then
+    FreeAndNil(fArquivoLog);
+end;
+
+end.

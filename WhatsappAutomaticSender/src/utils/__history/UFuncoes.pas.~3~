@@ -1,0 +1,14 @@
+unit UFuncoes;
+
+interface
+
+function GerarHTMLQRCode(Base64: String): String;
+
+implementation
+
+function GerarHTMLQRCode(Base64: String): String;
+begin
+  Result := '';
+end;
+
+end.

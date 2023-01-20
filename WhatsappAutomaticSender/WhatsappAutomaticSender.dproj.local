@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2023/01/14 13:41:30.000.830,=C:\Users\mathe\OneDrive\Documentos\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2023/01/14 13:42:35.000.517,D:\Projetos\WhatsappAutomaticSender\UPrincipal.pas=C:\Users\mathe\OneDrive\Documentos\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2023/01/14 13:42:35.000.517,D:\Projetos\WhatsappAutomaticSender\UPrincipal.dfm=C:\Users\mathe\OneDrive\Documentos\Embarcadero\Studio\Projects\Unit1.dfm</Transaction>
+    <Transaction>2023/01/14 13:42:45.000.877,D:\Projetos\WhatsappAutomaticSender\PWhatsappAutomaticSender.dproj=C:\Users\mathe\OneDrive\Documentos\Embarcadero\Studio\Projects\Project1.dproj</Transaction>
+    <Transaction>2023/01/14 13:43:26.000.410,=D:\Projetos\WhatsappAutomaticSender\Unit1.pas</Transaction>
+    <Transaction>2023/01/14 13:44:13.000.653,D:\Projetos\WhatsappAutomaticSender\src\utils\UApiRest.pas=D:\Projetos\WhatsappAutomaticSender\Unit1.pas</Transaction>
+    <Transaction>2023/01/14 14:13:01.000.528,D:\Projetos\WhatsappAutomaticSender\WhatsappAutomaticSender.dproj=D:\Projetos\WhatsappAutomaticSender\PWhatsappAutomaticSender.dproj</Transaction>
+    <Transaction>2023/01/14 21:07:20.000.550,=D:\Projetos\WhatsappAutomaticSender\Unit1.pas</Transaction>
+    <Transaction>2023/01/14 21:08:19.000.907,D:\Projetos\WhatsappAutomaticSender\Unit1.pas=D:\Projetos\WhatsappAutomaticSender\src\utils\UPdr_Mensagens.pas</Transaction>
+    <Transaction>2023/01/15 18:02:30.166,=D:\Projetos\WhatsappAutomaticSender\Unit1.pas</Transaction>
+    <Transaction>2023/01/15 18:02:47.192,D:\Projetos\WhatsappAutomaticSender\src\utils\UFuncoes.pas=D:\Projetos\WhatsappAutomaticSender\Unit1.pas</Transaction>
+  </Transactions>
+</BorlandProject>
